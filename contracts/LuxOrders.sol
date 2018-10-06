@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import '../openzeppelin-solidity-master/contracts/token/ERC721/ERC721Full.sol';
 import "../openzeppelin-solidity-master/contracts/ownership/Ownable.sol";
 
-contract LuxTokens is ERC721Full, Ownable {
+contract LuxOrders is ERC721Full, Ownable {
 
   //state variables
 
@@ -148,6 +148,7 @@ contract LuxTokens is ERC721Full, Ownable {
         //return
         return orderIndex;
       }
+      return 0;
     }
 
     //chooseDonation function
