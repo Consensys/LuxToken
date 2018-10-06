@@ -1,5 +1,5 @@
 var HDWalletProvider = require("truffle-hdwallet-provider");
-var mnemonic = "tuition cabbage frog evidence artwork party game vacuum tuna dash lunch bulb";
+var mnemonic = "";
 
 module.exports = {
   // See <http://truffleframework.com/docs/advanced/configuration>
@@ -11,13 +11,13 @@ module.exports = {
   },
   rinkeby: {
     provider: function() {
-      return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/3ed1418443b041519b6e0c1091c28ef2');
+      return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/');
     },
     network_id: 4
   },
   ropsten: {
     provider: function() {
-      return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/3ed1418443b041519b6e0c1091c28ef2');
+      return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/');
     },
     network_id: 3
   },
