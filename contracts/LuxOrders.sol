@@ -56,7 +56,7 @@ contract LuxTokens is ERC721Full, Ownable {
     mapping (uint256 => SaleDetails) public soldTokens;
     struct SaleDetails {
       bytes32 buyerHash; //identifier hash of off chain identifier of buyer
-      bytes32 redemptionHash; //SHA256 of secret value used by buyer to redeem their token
+      bytes32 redemptionHash; //SHA256 of secret value used by buyer to redeem
       bool redeemed; //redemption status of token
       bool exists;
       uint256 cost; //cost of token in sale (USD)
@@ -117,16 +117,16 @@ contract LuxTokens is ERC721Full, Ownable {
       }
 
       //2.0 Start process of tracking sale, order can only occur once
-      if (!soldTokens[_tokenId].sold) {
-        soldTokens[_tokenId] = SaleDetails(_buyerID, _redemptionHash, false, true, _OrderCost);
+      //increment orderIndex
+      orderIndex += 1;
+      if (!soldTokens[orderIndex].exists) {
+        soldTokens[orderIndex] = SaleDetails(_buyerID, _redemptionHash, false, true, _saleAmount);
         //increment total donations
-        totalRaised += _OrderCost;
+        totalRaised += _saleAmount;
         //emit event that token was sold
-        emit SoldToken(_tokenId, _buyerID, soldTokens[_tokenId].cost);
+        emit SoldToken(orderIndex, _buyerID, soldTokens[orderIndex].cost);
 
         //3.0 Start process of minting tokenized order
-        //increment orderIndex
-        orderIndex += 1;
 
         //check if token doesn't exist yet using inherited ERC721 contract
         require(_exists(orderIndex) == true);
@@ -145,9 +145,7 @@ contract LuxTokens is ERC721Full, Ownable {
 
         //return
         return orderIndex;
-
       }
-
     }
 
     //chooseDonation function
@@ -249,7 +247,7 @@ contract LuxTokens is ERC721Full, Ownable {
 		}
     //get boolean to see if NFT has been sold or not
     function getTokenSold(uint256 _tokenId) public view returns (bool) {
-      return soldTokens[_tokenId].sold;
+      return soldTokens[_tokenId].exists;
     }
 
     //get token ownerOf
