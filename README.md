@@ -27,6 +27,8 @@ If we compare these two methods of tokenization, we can reveal the pros and cons
 
 ![Tokenized Asset Comparison](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/TokenAssetComparison.png)
 
+Note, that setting up a sales process is more difficult because it requires to tag every item with a unique SKU#, rather than a categorical SKU# that provides multiple, similar items, with the same id. 
+
 ## Secondary & Derrivative Markets of Resold, Donated Goods  
 TBD
 
