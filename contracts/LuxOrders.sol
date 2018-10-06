@@ -117,9 +117,11 @@ contract LuxTokens is ERC721Full, Ownable {
       }
 
       //2.0 Start process of tracking sale, order can only occur once
-      //increment orderIndex
-      orderIndex += 1;
-      if (!soldTokens[orderIndex].exists) {
+      uint256 testIndex = orderIndex + 1;
+      if (!soldTokens[testIndex].exists) {
+        //increment orderIndex
+        orderIndex += 1;
+        //create new sale
         soldTokens[orderIndex] = SaleDetails(_buyerID, _redemptionHash, false, true, _saleAmount);
         //increment total donations
         totalRaised += _saleAmount;
