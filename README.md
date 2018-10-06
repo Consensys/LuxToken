@@ -32,11 +32,47 @@ Note, that setting up a sales process is more difficult because it requires to t
 ## Secondary & Derrivative Markets of Resold, Donated Goods  
 TBD
 
+### Tokenized Item Smart Contract Variables & Functions  
+Based on the touchpoints that we need to track to provide full transparency within the donation supply chain, what data needs to be stored on chain? The following is a proposal of what we need to track: 
+
+![Item Touchpoints](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/ItemTouchpoints.png)
+
+Actions comprise of variables that track important actions across the donation supply chain, like a consumer choosing which charity she wants her money to go to, Luxarity making a formal grant disbursement, and a sale ocurring.
+
+![Item Actions](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/ItemActions.png)
+
+Assets are comprised of variables that have an innate value (non-fungible assets) that need to be tracked on chain. 
+
+![Item Tokens](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/ItemTokens.png)
+
+Identities are comprised of variables that track psudoanonymous identities of buyers and donors. 
+
+![Item Identities](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/TokenIdentities.png)
+
+Assets are comprised of variables that have an innate value (non-fungible assets) that need to be tracked on chain. 
+
+![Item Actions](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/TokenActions.png)
+
+
 ### Tokenized Order Smart Contract Variables & Functions 
-There are two user types users across the Impactfolio platform: (1) Deliverers, who set up social impact projects and apply to be on the Impactfolio list and, (2) Curators, who evaluatae submitted applications by Deliverers and determine which projects deserve a spot on the final Impactfolio list. Each user has certain abilities given their role. The following describes these abilities (as features): 
+Based on the touchpoints that we need to track to provide full transparency within the donation supply chain, what data needs to be stored on chain? The following is a proposal of what we need to track: 
 
-1. **Deliverers:**
+![Order Touchpoints](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/OrderTouchpoints.png)
 
-2. **Curators:**
+Actions comprise of variables that track important actions across the donation supply chain, like a consumer choosing which charity she wants her money to go to, Luxarity making a formal grant disbursement, and a sale ocurring.
 
-### Tokenized Item Smart Contract Variables & Functions 
+![Order Actions](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/OrderActions.png)
+
+Assets are comprised of variables that have an innate value (non-fungible assets) that need to be tracked on chain. 
+
+![Order Tokens](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/OrderTokens.png)
+
+Identities are comprised of variables that track psudoanonymous identities of buyers and donors. 
+
+![Order Identities](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/OrderIdentities.png)
+
+Assets are comprised of variables that have an innate value (non-fungible assets) that need to be tracked on chain. 
+
+![Item Actions](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/TokenActions.png)
+
+
