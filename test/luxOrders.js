@@ -14,7 +14,7 @@ contract('LuxOrders', (accounts) => {
   })
 
   //testing soldOrderToMint function
-  it('soldOrderToMint test: Should create a new order token, create a new buyer, increment totalRaised, and return a token id', async () => {
+  it('soldOrderToMint Test: Should create a new order token, create a new buyer, increment totalRaised, and return a token id', async () => {
       //create new order token after sale is registered
       await contractInstance.soldOrderToMint("https://ipfs.io/ipfs/QmV9tSDx9UiPeWExXEeH6aoDvmihvx6jD5eLb4jbTaKGps", 2000, web3.sha3(web3.toHex('test@gmail.com'), {encoding:"hex"}), web3.sha3(web3.toHex('test@gmail.com', 1), {encoding:"hex"}))
 
@@ -68,7 +68,7 @@ contract('LuxOrders', (accounts) => {
    })
 
    //testing chooseDonation function
-   it('chooseDonation test: Should update charity list, emit donation event, and return bool', async () => {
+   it('chooseDonation Test: Should update charity list, emit donation event, and return bool', async () => {
 
      //check the buyers mapping contributed should be 2000
      const buyerId = await web3.sha3(web3.toHex('test@gmail.com'), {encoding:"hex"})
@@ -117,7 +117,7 @@ contract('LuxOrders', (accounts) => {
    })
 
    //testing redeemOrder function
-   it('redeemOrder test: Update token buyer address, update token redemption status, transfer ERC721 token to new address, emit redeem event', async () => {
+   it('redeemOrder Test: Update token buyer address, update token redemption status, transfer ERC721 token to new address, emit redeem event', async () => {
 
      //call redeem order
      await contractInstance.redeemOrder(web3.sha3(web3.toHex('test@gmail.com'), {encoding:"hex"}), web3.sha3(web3.toHex('test@gmail.com', 1), {encoding:"hex"}), accounts[1], 1)
@@ -138,7 +138,7 @@ contract('LuxOrders', (accounts) => {
    })
 
    //testing makeDonation function
-   it('makeDonation test: Update madeDonations list, increment totalMadeDonations, increment totalDonated, and emit DonationMadeToCharity', async () => {
+   it('makeDonation Test: Update madeDonations list, increment totalMadeDonations, increment totalDonated, and emit DonationMadeToCharity', async () => {
 
      //call makeDonation
      await contractInstance.makeDonation(web3.sha3(web3.toHex('Proof that Luxarity donated allocated proceeds to Black Girls Code for a total of $1000'), {encoding:"hex"}), 'https://www.proof.com', 1000, 'Black Girls Code')
@@ -172,6 +172,24 @@ contract('LuxOrders', (accounts) => {
      //check new struct in made donations mapping: address
      const mdSender = newMadeDonation[4]
      assert.equal(mdSender , accounts[0], 'Sender in made donation struct is incorrect')
+
+   })
+
+   //testing call functions
+   it('Call Function Test: call for buyer amount information, call for redemption status information, call for token sold information, and call for token owner information', async () => {
+
+     //get redemption status of token 1 = should be true
+     const tokenStatus = await contractInstance.getRedemption(1)
+     assert.equal(tokenStatus, true, 'Token redemption status is incorrect')
+
+     //get buyer amount -> should be 2000
+     const tokenBuyerAmount = await contractInstance.getBuyerAmount(web3.sha3(web3.toHex('test@gmail.com'), {encoding:"hex"}))
+     assert.equal(tokenBuyerAmount, 2000, 'Token buyer amount is incorrect')
+
+     //get token owner
+     const tokenOwner = await contractInstance.getTokenOwner(1)
+     assert.equal(tokenOwner, accounts[1], 'Token owner is incorrect')
+
 
    })
 

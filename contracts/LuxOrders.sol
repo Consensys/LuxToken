@@ -238,10 +238,6 @@ contract LuxOrders is ERC721Full, Ownable {
     function getRedemption(uint _tokenId) public view returns (bool) {
       return orderTokens[_tokenId].redeemed;
 		}
-    //get boolean to see if NFT has been sold or not
-    function getTokenSold(uint256 _tokenId) public view returns (bool) {
-      return orderTokens[_tokenId].exists;
-    }
 
     //get token ownerOf
     function getTokenOwner(uint _tokenId) public view returns (address) {
