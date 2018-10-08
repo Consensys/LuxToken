@@ -16,6 +16,9 @@ contract LuxOrders is ERC721Full, Ownable {
     //total verifiably donated to charities
     uint256 public totalDonated;
 
+    //total amount chosen to be donated
+    uint256 public totalChosenDonatedAmount;
+
     //total number of chosen donations
     uint256 public totalChosenDonations;
 
@@ -23,78 +26,72 @@ contract LuxOrders is ERC721Full, Ownable {
     uint256 public totalMadeDonations;
 
     //token mapping
-    mapping (uint256 => OrderToken) orderTokens;
+    mapping (uint256 => OrderToken) public orderTokens;
 
-    //token struct
+    //token struct for order -> which represents a sale
     struct OrderToken {
       uint256 saleAmount;
       string tokenURI;
       address generation;
       address owner;
+      bool redeemed;
+      bytes32 buyerHash;
+      bytes32 redemptionHash;
+      bool exists; //always true
     }
 
-    //list of donation choices made by buyer (attestation on chain that buyer
-    //chose a particular charity to give to)
-    mapping (uint256 => ChosenDonation) public chosenDonations;
-    struct ChosenDonation {
-      string charityName; //name of charity buyer has chosen to give to
-      uint256 amountDonated; //amount buyer would like to set aside from his purchases to charity
-      bytes32 buyerHash; //hash of donor off-chain identity
+    //charities mapping to track the total amount chosen to be donated
+    //to each charity, id is SHA256(full name of charity)
+    mapping (bytes32 => Charity) public charities;
+    struct Charity {
+      string charityName;
+      uint256 amountChosenToDonate;
+      uint256 amountDonated;
+      bool exists; //always true
     }
 
     //MadeDonations is a list of donations actually made
+    //id is hash of donation IPFS url
     mapping (bytes32 => MadeDonation) public madeDonations;
     struct MadeDonation {
       string charityName; //name of charity luxarity sent proceeds to
+      string donationProofUrl;
       uint256 amountDonated; //amount donated via grant to charity
-      bytes32 donationProofHash; //SHA256 hash of proof of donation (in case it is tampered with)
+      bytes32 donationProofHash; //SHA256 hash of proof of donation
       address donorAddress; //address of owner of contract (luxarity)
-      string donationProof; //link to donation receipt
     }
 
-    //soldTokens mapping keeping track of which tokens are sold to which buyer,
-    mapping (uint256 => SaleDetails) public soldTokens;
-    struct SaleDetails {
-      bytes32 buyerHash; //identifier hash of off chain identifier of buyer
-      bytes32 redemptionHash; //SHA256 of secret value used by buyer to redeem
-      bool redeemed; //redemption status of token
-      bool exists;
-      uint256 cost; //cost of token in sale (USD)
-    }
-
-    //buyers mapping with buyer struct bytes32 => buyer, buyer struct {bytes32, totalBought, exists, owneraddress, totalDonated}, totalBought increments after everytime the buyer buys something and sold function is called, we check for exists and if not true we create a new buyer and add the amount they bought and increment on top of that amount in the future
-    //identifier hash of off chain identifier of buyer
+    //buyers mapping with buyer struct bytes32 => buyer
     mapping (bytes32 => Buyer) public buyers;
     struct Buyer {
       uint256 totalContributed; //total amount the buyer has bought in USD
       uint256 totalDonationsAllocated; //amount of donation capital allocated
       bool exists; //always true
-      address buyerAddress; //address of buyer (if token has been redeemed)
     }
 
 
   //constructor for NFT token, name = Luxarity, symbol = LUX
-  constructor() ERC721Full('Luxarity Order Token', 'LUX0') public {
-    //tokenid index
-    orderIndex = 0;
-    //total capital raised uint256 USD
-    totalRaised = 0;
-    //total donated by luxarity (USD)
-    totalDonated = 0;
-    //total number of chosen donations
-    totalChosenDonations = 0;
-    //total number of made donations
-    totalMadeDonations = 0;
-  }
+    constructor() ERC721Full('Luxarity Order Token', 'LUX0') public {
+      //tokenid index
+      orderIndex = 0;
+      //total capital raised uint256 USD
+      totalRaised = 0;
+      //total donated by luxarity (USD)
+      totalDonated = 0;
+      //total number of chosen donations
+      totalChosenDonations = 0;
+      //total number of made donations
+      totalMadeDonations = 0;
+      //total amount chosen to be donated
+      totalChosenDonatedAmount = 0;
+    }
 
   //events
-    event MintedToken (uint256 _tokenId, address _tokenMinter, string _tokenMetaData);
-    //event when Order is sold
-    event SoldToken (uint256 _tokenId, bytes32 _buyerId, uint256 _cost);
+    event SoldAndMintedToken (uint256 _tokenId, bytes32 _buyerID, uint256 _saleAmount, string _tokenURI, address _tokenMinter);
     //event when donation is chosen (bytes32, amount, charityName, donation id)
     event DonationChosen (string _charityName, bytes32 _buyerId, uint256 _amountToBeDonated);
     //event when donation is made by luxarity
-    event DonationMadeToCharity (uint256 _amountDonated, string _charityName, bytes32 _proofHash, string _donationProof, bytes32 _donationMadeHash);
+    event DonationMadeToCharity (bytes32 _donationHash, uint256 _amountDonated, string _charityName, string _donationURL);
     //event when token is redeemed
     event RedeemedToken (uint256 _tokenId, bytes32 _buyerId, address _buyerAddress);
 
@@ -107,71 +104,78 @@ contract LuxOrders is ERC721Full, Ownable {
     //mint function - when Orders are sold in an order - the receipt should be tokenized
     function soldOrderToMint(string _tokenURI, uint256 _saleAmount, bytes32 _buyerID, bytes32 _redemptionHash) public onlyOwner returns (uint) {
 
-      //1.0 check if buyer already exists
+      //1.0 Ensure token doesn't already exists
+      uint256 testIndex = orderIndex + 1;
+      require(_exists(testIndex) == false);
+
+      //2.0 check if buyer already exists
       if (!buyers[_buyerID].exists) {
         //adding new buyer to buyers mapping
-        buyers[_buyerID] = Buyer(_saleAmount, 0, true, address(0));
+        buyers[_buyerID] = Buyer(_saleAmount, 0, true);
       } else {
         //update existing buyer
         buyers[_buyerID].totalContributed += _saleAmount;
       }
 
-      //2.0 Start process of tracking sale, order can only occur once
-      uint256 testIndex = orderIndex + 1;
-      if (!soldTokens[testIndex].exists) {
-        //increment orderIndex
-        orderIndex += 1;
-        //create new sale
-        soldTokens[orderIndex] = SaleDetails(_buyerID, _redemptionHash, false, true, _saleAmount);
-        //increment total donations
-        totalRaised += _saleAmount;
-        //emit event that token was sold
-        emit SoldToken(orderIndex, _buyerID, soldTokens[orderIndex].cost);
+      //increment total donations
+      totalRaised += _saleAmount;
 
-        //3.0 Start process of minting tokenized order
+      //increment orderIndex
+      orderIndex += 1;
 
-        //check if token doesn't exist yet using inherited ERC721 contract
-        require(_exists(orderIndex) == true);
+      //create new sale
+      orderTokens[orderIndex] = OrderToken(_saleAmount, _tokenURI, msg.sender, msg.sender, false, _buyerID, _redemptionHash, true);
 
-        //create token struct
-        orderTokens[orderIndex] = OrderToken(_saleAmount, _tokenURI, msg.sender, msg.sender);
+      //mint token
+      _mint(msg.sender, orderIndex);
 
-        //mint token
-        _mint(msg.sender, orderIndex);
+      //set metadata
+      _setTokenURI(orderIndex, _tokenURI);
 
-        //set metadata
-        _setTokenURI(orderIndex, _tokenURI);
+      //emit event
+      emit SoldAndMintedToken(orderIndex, _buyerID, _saleAmount, _tokenURI, msg.sender);
 
-        //emit event
-        emit MintedToken(orderIndex, msg.sender, _tokenURI);
+      //return
+      return orderIndex;
 
-        //return
-        return orderIndex;
-      }
-      return 0;
     }
 
     //chooseDonation function
     function chooseDonation(bytes32 _buyerID, string _charityName, uint256 _chosenDonateAmount) public onlyBuyer(_buyerID) returns (bool) {
-      //if the amount to donate is less than or equal to the amount they have left to allocate
+      //check if amount to donate is less than or equal to the amount left
       uint256 leftover = buyers[_buyerID].totalContributed - buyers[_buyerID].totalDonationsAllocated;
-      if (leftover <= _chosenDonateAmount) {
-        //increment total chosen donations
+      //if it is, proceed
+      if (leftover >= _chosenDonateAmount) {
+        //incement totalChosenDonatedAmount
+        totalChosenDonatedAmount += _chosenDonateAmount;
+        //increment total number of donations chosen to be made
         totalChosenDonations += 1;
-        //update chosenDonations mapping and then emit choseDonation event
-        chosenDonations[totalChosenDonations] = ChosenDonation(_charityName, _chosenDonateAmount, _buyerID);
-        //emit event on chosen donation
+        //update buyers donation allocation
+        buyers[_buyerID].totalDonationsAllocated += _chosenDonateAmount;
+        //check if charity is new
+        bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
+        //if it is, add to charity mapping
+        if (charities[charityHash].exists) {
+          charities[charityHash].amountChosenToDonate += _chosenDonateAmount;
+        } else {
+          //if not, update charity struct
+          charities[charityHash] = Charity(_charityName, _chosenDonateAmount, 0, true);
+        }
+        //emit event ChosenToDonate
         emit DonationChosen(_charityName, _buyerID, _chosenDonateAmount);
-        //return
+        //return true
         return true;
       }
+      //if it is not, return false
       return false;
     }
 
     //make donation function
-    function makeDonation(bytes32 _proofHash, string _proof, uint256 _madeDonationAmount, string _charityName) public onlyOwner returns (bool) {
+    function makeDonation(bytes32 _proofHash, string _proofURL, uint256 _madeDonationAmount, string _charityName) public onlyOwner returns (bool) {
+      uint256 leftover = totalRaised - totalDonated;
+      require(leftover >= _madeDonationAmount);
       //donation made proof hash
-      bytes32 donationMadeHash = keccak256(abi.encodePacked(_charityName, _madeDonationAmount, _proofHash, msg.sender, _proof));
+      bytes32 donationMadeHash = keccak256(abi.encodePacked(_proofURL));
       //check if donation doesn't exist yet
       require(madeDonations[donationMadeHash].donorAddress == address(0));
       //increment total made donations
@@ -179,25 +183,24 @@ contract LuxOrders is ERC721Full, Ownable {
       //total donated sum amount increased
       totalDonated += _madeDonationAmount;
       //add to made donations mapping
-      madeDonations[donationMadeHash] = MadeDonation(_charityName, _madeDonationAmount, _proofHash, msg.sender, _proof);
+      madeDonations[donationMadeHash] = MadeDonation(_charityName, _proofURL, _madeDonationAmount, _proofHash, msg.sender);
       //emit event
-      emit DonationMadeToCharity(_madeDonationAmount, _charityName, _proofHash, _proof, donationMadeHash);
+      emit DonationMadeToCharity(donationMadeHash, _madeDonationAmount, _charityName, _proofURL);
       //return
       return true;
     }
 
     //redeem token
     function redeemOrder(bytes32 _buyerID, bytes32 _redemptionHash, address _buyerAddress, uint256 _tokenId) public onlyBuyer(_buyerID) returns (bool) {
+
       //make sure address is valid
+      require(orderTokens[_tokenId].exists == true);
       require(_buyerAddress != address(0));
-      //make sure that sold Order exists to be redeemed
-      require(soldTokens[_tokenId].buyerHash == _buyerID);
-      //make sure redemption secret is correct
-      require(soldTokens[_tokenId].redemptionHash == _redemptionHash);
-      //update token struct
+      require(orderTokens[_tokenId].buyerHash == _buyerID);
+      require(orderTokens[_tokenId].redemptionHash == _redemptionHash);
+
       orderTokens[_tokenId].owner = _buyerAddress;
-      //updates salesdetails struct
-      soldTokens[_tokenId].redeemed = true;
+      orderTokens[_tokenId].redeemed = true;
       //conduct transfer from Luxarity to address
       transferFrom(msg.sender, _buyerAddress, _tokenId);
       //emit event
@@ -208,16 +211,15 @@ contract LuxOrders is ERC721Full, Ownable {
     //safe redeem token
     function safeRedeemOrder(bytes32 _buyerID, bytes32 _redemptionHash, address _buyerAddress, uint256 _tokenId) public onlyBuyer(_buyerID) returns (bool) {
       //make sure address is valid
+      require(orderTokens[_tokenId].exists == true);
       require(_buyerAddress != address(0));
-      //make sure that sold Order exists to be redeemed
-      require(soldTokens[_tokenId].buyerHash == _buyerID);
-      require(soldTokens[_tokenId].redemptionHash == _redemptionHash);
-      //update token struct
+      require(orderTokens[_tokenId].buyerHash == _buyerID);
+      require(orderTokens[_tokenId].redemptionHash == _redemptionHash);
+
       orderTokens[_tokenId].owner = _buyerAddress;
+      orderTokens[_tokenId].redeemed = true;
       //conduct transfer from Luxarity to address
       safeTransferFrom(msg.sender, _buyerAddress, _tokenId);
-      //updates salesdetails struct
-      soldTokens[_tokenId].redeemed = true;
       //emit event
       emit RedeemedToken(_tokenId, _buyerID, _buyerAddress);
       return true;
@@ -231,26 +233,14 @@ contract LuxOrders is ERC721Full, Ownable {
       }
       return 0;
 		}
-    //get total amount donated
-    function getTotalRaised() public view returns (uint) {
-      return totalRaised;
-		}
-    //get total specfically allocated
-    function getTotalAllocatedDonations() public view returns (uint) {
-      return totalChosenDonations;
-		}
-    //get total made donations
-    function getTotalMadeDonations() public view returns (uint) {
-      return totalMadeDonations;
-		}
 
     //get boolean to see if NFT has been redeemed or not
     function getRedemption(uint _tokenId) public view returns (bool) {
-      return soldTokens[_tokenId].redeemed;
+      return orderTokens[_tokenId].redeemed;
 		}
     //get boolean to see if NFT has been sold or not
     function getTokenSold(uint256 _tokenId) public view returns (bool) {
-      return soldTokens[_tokenId].exists;
+      return orderTokens[_tokenId].exists;
     }
 
     //get token ownerOf
