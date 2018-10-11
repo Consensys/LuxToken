@@ -2,8 +2,6 @@ var HDWalletProvider = require("truffle-hdwallet-provider");
 var mnemonic = "";
 
 module.exports = {
-  // See <http://truffleframework.com/docs/advanced/configuration>
-  // to customize your Truffle configuration!
   solc: {
 		optimizer: {
 			enabled: true,
@@ -18,30 +16,30 @@ module.exports = {
     },
     rinkeby: {
       provider: function() {
-        return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/');
+        return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/');
       },
-      network_id: 3,
-      gas: 6712388,
-      gasPrice: 1000000000,
+      network_id: '3',
+      gas: 4600000,
+      gasPrice: 1100000000,
     },
     main: {
       provider: function() {
-        return new HDWalletProvider(mnemonic, 'https://mainnet.infura.io/');
+        return new HDWalletProvider(mnemonic, 'https://mainnet.infura.io/v3/');
       },
-      network_id: 1
+      network_id: '1'
     },
     ropsten: {
       provider: function() {
-        return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/');
+        return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/v3/');
       },
-      network_id: 4,
+      network_id: '4',
       gas: 4600000,
     },
     kovan: {
       provider: function() {
-        return new HDWalletProvider(mnemonic, 'https://kovan.infura.io/');
+        return new HDWalletProvider(mnemonic, 'https://kovan.infura.io/v3/');
       },
-      network_id: 42
+      network_id: '42'
     },
   }
 };
