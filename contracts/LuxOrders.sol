@@ -51,13 +51,12 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
     //MadeDonations is a list of donations actually made
-    //id is hash of donation IPFS url
+    //id is hash of donation IPFS url, indexed by proofHash
     mapping (bytes32 => MadeDonation) public madeDonations;
     struct MadeDonation {
       string charityName; //name of charity luxarity sent proceeds to
       string donationProofUrl;
       uint256 amountDonated; //amount donated via grant to charity
-      bytes32 donationProofHash; //SHA256 hash of proof of donation
       address donorAddress; //address of owner of contract (luxarity)
     }
 
@@ -95,26 +94,26 @@ contract LuxOrders is ERC721Full, Ownable {
     //event when token is redeemed
     event RedeemedToken (uint256 _tokenId, bytes32 _buyerId, address _buyerAddress);
 
-  //modifiers
-    //check if buyer exists
-    modifier onlyBuyer(bytes32 _buyerId) { require(buyers[_buyerId].exists == true); _; }
-
   //cuase functions
 
     //mint function - when Orders are sold in an order - the receipt should be tokenized
-    function soldOrderToMint(string _tokenURI, uint256 _saleAmount, bytes32 _buyerID, bytes32 _redemptionHash) public onlyOwner returns (uint) {
+    function soldOrderToMint(string _tokenURI, uint256 _saleAmount, string _buyerID, string _redemptionHash) public onlyOwner returns (uint) {
 
       //1.0 Ensure token doesn't already exists
       uint256 testIndex = orderIndex + 1;
       require(_exists(testIndex) == false);
 
+      //create buyerhash and redemption hash
+      bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
+      bytes32 redemptionHash = keccak256(abi.encodePacked(_redemptionHash));
+
       //2.0 check if buyer already exists
-      if (!buyers[_buyerID].exists) {
+      if (!buyers[buyerID].exists) {
         //adding new buyer to buyers mapping
-        buyers[_buyerID] = Buyer(_saleAmount, 0, true);
+        buyers[buyerID] = Buyer(_saleAmount, 0, true);
       } else {
         //update existing buyer
-        buyers[_buyerID].totalContributed += _saleAmount;
+        buyers[buyerID].totalContributed += _saleAmount;
       }
 
       //increment total donations
@@ -124,7 +123,7 @@ contract LuxOrders is ERC721Full, Ownable {
       orderIndex += 1;
 
       //create new sale
-      orderTokens[orderIndex] = OrderToken(_saleAmount, _tokenURI, msg.sender, msg.sender, false, _buyerID, _redemptionHash, true);
+      orderTokens[orderIndex] = OrderToken(_saleAmount, _tokenURI, msg.sender, msg.sender, false, buyerID, redemptionHash, true);
 
       //mint token
       _mint(msg.sender, orderIndex);
@@ -133,7 +132,7 @@ contract LuxOrders is ERC721Full, Ownable {
       _setTokenURI(orderIndex, _tokenURI);
 
       //emit event
-      emit SoldAndMintedToken(orderIndex, _buyerID, _saleAmount, _tokenURI, msg.sender);
+      emit SoldAndMintedToken(orderIndex, buyerID, _saleAmount, _tokenURI, msg.sender);
 
       //return
       return orderIndex;
@@ -141,9 +140,12 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
     //chooseDonation function
-    function chooseDonation(bytes32 _buyerID, string _charityName, uint256 _chosenDonateAmount) public onlyBuyer(_buyerID) returns (bool) {
+    function chooseDonation(string _buyerID, string _charityName, uint256 _chosenDonateAmount) public returns (bool) {
+      //buyer check to operate function instead of modifier for conversion reasons
+      bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
+      require(buyers[buyerID].exists == true);
       //check if amount to donate is less than or equal to the amount left
-      uint256 leftover = buyers[_buyerID].totalContributed - buyers[_buyerID].totalDonationsAllocated;
+      uint256 leftover = buyers[buyerID].totalContributed - buyers[buyerID].totalDonationsAllocated;
       //if it is, proceed
       if (leftover >= _chosenDonateAmount) {
         //incement totalChosenDonatedAmount
@@ -151,7 +153,7 @@ contract LuxOrders is ERC721Full, Ownable {
         //increment total number of donations chosen to be made
         totalChosenDonations += 1;
         //update buyers donation allocation
-        buyers[_buyerID].totalDonationsAllocated += _chosenDonateAmount;
+        buyers[buyerID].totalDonationsAllocated += _chosenDonateAmount;
         //check if charity is new
         bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
         //if it is, add to charity mapping
@@ -162,7 +164,7 @@ contract LuxOrders is ERC721Full, Ownable {
           charities[charityHash] = Charity(_charityName, _chosenDonateAmount, 0, true);
         }
         //emit event ChosenToDonate
-        emit DonationChosen(_charityName, _buyerID, _chosenDonateAmount);
+        emit DonationChosen(_charityName, buyerID, _chosenDonateAmount);
         //return true
         return true;
       }
@@ -171,65 +173,84 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
     //make donation function
-    function makeDonation(bytes32 _proofHash, string _proofURL, uint256 _madeDonationAmount, string _charityName) public onlyOwner returns (bool) {
+    function makeDonation(string _proofHash, string _proofURL, uint256 _madeDonationAmount, string _charityName) public onlyOwner returns (bool) {
       uint256 leftover = totalRaised - totalDonated;
       require(leftover >= _madeDonationAmount);
-      //donation made proof hash
-      bytes32 donationMadeHash = keccak256(abi.encodePacked(_proofURL));
+
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 proofHash = keccak256(abi.encodePacked(_proofHash));
+
       //check if donation doesn't exist yet
-      require(madeDonations[donationMadeHash].donorAddress == address(0));
+      require(madeDonations[proofHash].donorAddress == address(0));
       //increment total made donations
       totalMadeDonations += 1;
       //total donated sum amount increased
       totalDonated += _madeDonationAmount;
+
       //add to made donations mapping
-      madeDonations[donationMadeHash] = MadeDonation(_charityName, _proofURL, _madeDonationAmount, _proofHash, msg.sender);
+      madeDonations[proofHash] = MadeDonation(_charityName, _proofURL, _madeDonationAmount, msg.sender);
       //emit event
-      emit DonationMadeToCharity(donationMadeHash, _madeDonationAmount, _charityName, _proofURL);
+      emit DonationMadeToCharity(proofHash, _madeDonationAmount, _charityName, _proofURL);
       //return
       return true;
     }
 
     //redeem token
-    function redeemOrder(bytes32 _buyerID, bytes32 _redemptionHash, address _buyerAddress, uint256 _tokenId) public onlyBuyer(_buyerID) returns (bool) {
+    function redeemOrder(string _buyerID, string _redemptionHash, address _buyerAddress, uint256 _tokenId) public returns (bool) {
+
+      //create buyerhash
+      bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
+      require(buyers[buyerID].exists == true);
+
+      //create redemption hash
+      bytes32 redemptionHash = keccak256(abi.encodePacked(_redemptionHash));
 
       //make sure address is valid
       require(orderTokens[_tokenId].exists == true);
       require(_buyerAddress != address(0));
-      require(orderTokens[_tokenId].buyerHash == _buyerID);
-      require(orderTokens[_tokenId].redemptionHash == _redemptionHash);
+      require(orderTokens[_tokenId].buyerHash == buyerID);
+      require(orderTokens[_tokenId].redemptionHash == redemptionHash);
 
       orderTokens[_tokenId].owner = _buyerAddress;
       orderTokens[_tokenId].redeemed = true;
       //conduct transfer from Luxarity to address
       transferFrom(msg.sender, _buyerAddress, _tokenId);
       //emit event
-      emit RedeemedToken(_tokenId, _buyerID, _buyerAddress);
+      emit RedeemedToken(_tokenId, buyerID, _buyerAddress);
       return true;
     }
 
     //safe redeem token
-    function safeRedeemOrder(bytes32 _buyerID, bytes32 _redemptionHash, address _buyerAddress, uint256 _tokenId) public onlyBuyer(_buyerID) returns (bool) {
+    function safeRedeemOrder(string _buyerID, string _redemptionHash, address _buyerAddress, uint256 _tokenId) public returns (bool) {
+      //create buyerhash
+      bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
+      require(buyers[buyerID].exists == true);
+
+      //create redemption hash
+      bytes32 redemptionHash = keccak256(abi.encodePacked(_redemptionHash));
+
       //make sure address is valid
       require(orderTokens[_tokenId].exists == true);
       require(_buyerAddress != address(0));
-      require(orderTokens[_tokenId].buyerHash == _buyerID);
-      require(orderTokens[_tokenId].redemptionHash == _redemptionHash);
+      require(orderTokens[_tokenId].buyerHash == buyerID);
+      require(orderTokens[_tokenId].redemptionHash == redemptionHash);
 
       orderTokens[_tokenId].owner = _buyerAddress;
       orderTokens[_tokenId].redeemed = true;
       //conduct transfer from Luxarity to address
       safeTransferFrom(msg.sender, _buyerAddress, _tokenId);
       //emit event
-      emit RedeemedToken(_tokenId, _buyerID, _buyerAddress);
+      emit RedeemedToken(_tokenId, buyerID, _buyerAddress);
       return true;
     }
 
   //call functions
     //get how much a buyer has donated in total
-    function getBuyerAmount(bytes32 _buyerID) public view returns (uint256 total) {
-      if (buyers[_buyerID].exists) {
-        return buyers[_buyerID].totalContributed;
+    function getBuyerAmount(string _buyerID) public view returns (uint256 total) {
+      //create buyerhash
+      bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
+      if (buyers[buyerID].exists) {
+        return buyers[buyerID].totalContributed;
       }
       return 0;
 		}
