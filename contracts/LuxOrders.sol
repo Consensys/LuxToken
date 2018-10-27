@@ -50,6 +50,15 @@ contract LuxOrders is ERC721Full, Ownable {
       bool exists; //always true
     }
 
+    //chooseDonations -> index is hash of orderNumber + buyerHash
+    //this is here so double allocations from one order cannot be made
+    mapping (bytes32 => ChooseDonation) public chooseDonations;
+    struct ChooseDonation {
+      string charityName;
+      uint256 amountAllocated;
+      uint256 orderNumber;
+    }
+
     //MadeDonations is a list of donations actually made
     //id is hash of donation IPFS url, indexed by proofHash
     mapping (bytes32 => MadeDonation) public madeDonations;
@@ -102,6 +111,7 @@ contract LuxOrders is ERC721Full, Ownable {
       //1.0 Ensure token doesn't already exists
       uint256 testIndex = orderIndex + 1;
       require(_exists(testIndex) == false);
+      require(_saleAmount != 0);
 
       //create buyerhash and redemption hash
       bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
@@ -140,7 +150,7 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
     //chooseDonation function
-    function chooseDonation(string _buyerID, string _charityName, uint256 _chosenDonateAmount) public returns (bool) {
+    function chooseDonation(string _buyerID, string _charityName, uint256 _chosenDonateAmount, uint256 _orderNumber) public returns (bool) {
       //buyer check to operate function instead of modifier for conversion reasons
       bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
       require(buyers[buyerID].exists == true);
@@ -163,8 +173,13 @@ contract LuxOrders is ERC721Full, Ownable {
           //if not, update charity struct
           charities[charityHash] = Charity(_charityName, _chosenDonateAmount, 0, true);
         }
+        //add to chosenDonations mapping
+        bytes32 chooseDonationHash = keccak256(abi.encodePacked(buyerID, _orderNumber));
+        chooseDonations[chooseDonationHash] = ChooseDonation(_charityName, _chosenDonateAmount, _orderNumber);
+
         //emit event ChosenToDonate
         emit DonationChosen(_charityName, buyerID, _chosenDonateAmount);
+
         //return true
         return true;
       }
@@ -256,14 +271,108 @@ contract LuxOrders is ERC721Full, Ownable {
 		}
 
     //get boolean to see if NFT has been redeemed or not
-    function getRedemption(uint _tokenId) public view returns (bool) {
+    function getRedemption(uint256 _tokenId) public view returns (bool) {
+      require(orderTokens[_tokenId].exists == true);
       return orderTokens[_tokenId].redeemed;
 		}
 
     //get token ownerOf
-    function getTokenOwner(uint _tokenId) public view returns (address) {
-      address owner = ownerOf(_tokenId);
-      return owner;
+    function getTokenOwner(uint256 _tokenId) public view returns (address) {
+      require(orderTokens[_tokenId].exists == true);
+      return ownerOf(_tokenId);
+    }
+
+    //get token sale amount
+    function getTokenSaleAmount(uint256 _tokenId) public view returns (uint256) {
+      require(orderTokens[_tokenId].exists == true);
+      return orderTokens[_tokenId].saleAmount;
+    }
+
+    //get token uri
+    function getTokenURI(uint256 _tokenId) public view returns (string) {
+      require(orderTokens[_tokenId].exists == true);
+      return orderTokens[_tokenId].tokenURI;
+    }
+
+    //get token buyer hash
+    function getTokenBuyer(uint256 _tokenId) public view returns (bytes32) {
+      require(orderTokens[_tokenId].exists == true);
+      return orderTokens[_tokenId].buyerHash;
+    }
+
+    //get token redemption hash
+    function getTokenRedemptionHash(uint256 _tokenId) public view returns (bytes32) {
+      require(orderTokens[_tokenId].exists == true);
+      return orderTokens[_tokenId].redemptionHash;
+    }
+
+    //get charity name
+    function getCharityName(string _charityName) public view returns (string) {
+      bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
+      require(charities[charityHash].exists == true);
+      return charities[charityHash].charityName;
+    }
+
+    //get charity amount chosen to donate
+    function getCharityAmountChosen(string _charityName) public view returns (uint256) {
+      bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
+      require(charities[charityHash].exists == true);
+      return charities[charityHash].amountChosenToDonate;
+    }
+
+    //get charity amount actually donated
+    function getCharityAmountDonated(string _charityName) public view returns (uint256) {
+      bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
+      require(charities[charityHash].exists == true);
+      return charities[charityHash].amountDonated;
+    }
+
+    //get made donation charity name
+    function getMadeDonationCharityName(string _proofHash) public view returns (string) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 proofHash = keccak256(abi.encodePacked(_proofHash));
+      require(madeDonations[proofHash].donorAddress != address(0));
+      return madeDonations[proofHash].charityName;
+    }
+
+    //get made donation proof url
+    function getMadeDonationProofUrl(string _proofHash) public view returns (string) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 proofHash = keccak256(abi.encodePacked(_proofHash));
+      require(madeDonations[proofHash].donorAddress != address(0));
+      return madeDonations[proofHash].donationProofUrl;
+    }
+
+    //get made donation amount donated
+    function getMadeDonationAmountDonated(string _proofHash) public view returns (uint256) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 proofHash = keccak256(abi.encodePacked(_proofHash));
+      require(madeDonations[proofHash].donorAddress != address(0));
+      return madeDonations[proofHash].amountDonated;
+    }
+
+    //get made donation donor address
+    function getMadeDonationAddress(string _proofHash) public view returns (address) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 proofHash = keccak256(abi.encodePacked(_proofHash));
+      require(madeDonations[proofHash].donorAddress != address(0));
+      return madeDonations[proofHash].donorAddress;
+    }
+
+    //get buyer totalContributed
+    function getBuyerContributed(string _buyerHash) public view returns (uint256) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 buyerHash = keccak256(abi.encodePacked(_buyerHash));
+      require(buyers[buyerHash].exists == true);
+      return buyers[buyerHash].totalContributed;
+    }
+
+    //get buyer totalDonationsAllocated
+    function getBuyerAllocated(string _buyerHash) public view returns (uint256) {
+      //create proper hash (sha256 of data proof of donation)
+      bytes32 buyerHash = keccak256(abi.encodePacked(_buyerHash));
+      require(buyers[buyerHash].exists == true);
+      return buyers[buyerHash].totalDonationsAllocated;
     }
 
     //transfer ownership of contract
