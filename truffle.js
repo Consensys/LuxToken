@@ -19,7 +19,7 @@ module.exports = {
         return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/dafcac3faf174e009483337759967f85');
       },
       network_id: '3',
-      gas: 4600000,
+      gas: 5000000,
       gasPrice: 1100000000,
     },
     main: {
@@ -33,7 +33,7 @@ module.exports = {
         return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/v3/dafcac3faf174e009483337759967f85');
       },
       network_id: '4',
-      gas: 4600000,
+      gas: 5000000,
     },
     kovan: {
       provider: function() {

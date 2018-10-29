@@ -19,7 +19,7 @@ contract('LuxOrders', (accounts) => {
       const preBuyerID = 'test@gmail.com'
       const preRedemptionHash = 'test@gmail.com1'
       //create new order token after sale is registered
-      await contractInstance.soldOrderToMint("https://ipfs.io/ipfs/QmV9tSDx9UiPeWExXEeH6aoDvmihvx6jD5eLb4jbTaKGps", 2000, preBuyerID, preRedemptionHash)
+      await contractInstance.soldOrderToMint("https://ipfs.io/ipfs/QmV9tSDx9UiPeWExXEeH6aoDvmihvx6jD5eLb4jbTaKGps", 2000, preBuyerID, preRedemptionHash, 123)
 
       //check the buyers mapping contributed should be 2000
       const buyerId = await web3.sha3(web3.toHex(preBuyerID), {encoding:"hex"})
@@ -31,7 +31,7 @@ contract('LuxOrders', (accounts) => {
       const newBuyerDonationAllocation = newBuyer[1]
       assert.equal(newBuyerDonationAllocation, 0, 'The total donated allocation of the new buyer is not correct')
 
-      //check the buyers mapping donation allocation should be 0
+      //check the buyer exists
       const newBuyerExists = newBuyer[2]
       assert.equal(newBuyerExists, true, 'The exists status of the new buyer is not correct')
 
@@ -48,24 +48,28 @@ contract('LuxOrders', (accounts) => {
       const saleAmount = orderToken[0]
       assert.equal(saleAmount, 2000, 'The order token sale amount is not correct')
 
+      //check the token struct for correct order number
+      const orderNumber = orderToken[1]
+      assert.equal(orderNumber, 123, 'The order token sale amount is not correct')
+
       //check the token struct for all set variables: tokenURI
-      const tokenURI = orderToken[1]
+      const tokenURI = orderToken[2]
       assert.equal(tokenURI, "https://ipfs.io/ipfs/QmV9tSDx9UiPeWExXEeH6aoDvmihvx6jD5eLb4jbTaKGps", 'The order token URI is not correct')
 
       //check the token struct for all set variables: redeemed
-      const tokenRedeemed = orderToken[4]
+      const tokenRedeemed = orderToken[5]
       assert.equal(tokenRedeemed, false, 'The order token redemption status is not correct')
 
       //check the token struct for all set variables: buyer hash
-      const tokenBuyerHash = orderToken[5]
+      const tokenBuyerHash = orderToken[6]
       assert.equal(tokenBuyerHash, web3.sha3(web3.toHex(preBuyerID), {encoding:"hex"}), 'The order token buyer hash is not correct')
 
       //check the token struct for all set variables: buyer hash
-      const tokenRedemptionHash = orderToken[6]
+      const tokenRedemptionHash = orderToken[7]
       assert.equal(tokenRedemptionHash, web3.sha3(web3.toHex(preRedemptionHash), {encoding:"hex"}), 'The order token redemption hash is not correct')
 
       //check the token struct for all set variables: tokenExists
-      const tokenExists = orderToken[7]
+      const tokenExists = orderToken[8]
       assert.equal(tokenExists, true, 'The order token exists is not correct')
 
    })
@@ -84,19 +88,30 @@ contract('LuxOrders', (accounts) => {
      const newBuyerAllocated = newBuyer[1]
      assert.equal(newBuyerAllocated, 0, 'The total donation allocation amount of the new buyer is not correct')
 
-     //make donation allocation choice
-     await contractInstance.chooseDonation(preBuyerID, 'Black Girls Code', 1000)
+     //make donation allocation choice #1
+     await contractInstance.chooseDonation(preBuyerID, 'Black Girls Code', 1000, 123, 1)
 
      //check new buyer allocation amount
      const updatedBuyer = await contractInstance.buyers(buyerId)
      const newAllocation = updatedBuyer[1]
      assert.equal(newAllocation, 1000, 'The donation allocation for the buyer is incorrect')
 
+     //check for chooseDonation struct with 1000 in it
+     const choosenDonation = await contractInstance.chooseDonations(123)
+     const charityName = choosenDonation[0]
+     assert.equal(charityName, 'Black Girls Code', 'The charity name in the chosenDonation struct is incorrect')
+
+     const amountAllocated = choosenDonation[1]
+     assert.equal(amountAllocated, 1000, 'The donation allocation on the chosenDonation struct is incorrect')
+
+     const buyerHash = choosenDonation[2]
+     assert.equal(buyerHash, buyerId, 'The donation buyer hash on the chosenDonation struct is incorrect')
+
      //check charity mapping - should be new charity  - charity name
      const charityId = await web3.sha3(web3.toHex('Black Girls Code'), {encoding:"hex"})
      const newCharity = await contractInstance.charities(charityId)
-     const charityName = newCharity[0]
-     assert.equal(charityName, 'Black Girls Code', 'The charity name is incorrect')
+     const charityNameII = newCharity[0]
+     assert.equal(charityNameII, 'Black Girls Code', 'The charity name is incorrect')
 
      //check charity mapping - should be new charity  - amountChosenToDonate
      const charityChosenAmount = newCharity[1]
@@ -130,11 +145,11 @@ contract('LuxOrders', (accounts) => {
 
      //check update order token struct: buyer address
      const newOrderToken = await contractInstance.orderTokens(1)
-     const ownerAddress = newOrderToken[3]
+     const ownerAddress = newOrderToken[4]
      assert.equal(ownerAddress, accounts[1], 'Owner of order token is incorrect')
 
      //check update order token struct: redemption status
-     const redemptionStatus = newOrderToken[4]
+     const redemptionStatus = newOrderToken[5]
      assert.equal(redemptionStatus, true, 'Redemption status of order token is incorrect')
 
      //call get token owner

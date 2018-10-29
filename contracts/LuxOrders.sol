@@ -31,6 +31,7 @@ contract LuxOrders is ERC721Full, Ownable {
     //token struct for order -> which represents a sale
     struct OrderToken {
       uint256 saleAmount;
+      uint256 orderNumber;
       string tokenURI;
       address generation;
       address owner;
@@ -50,13 +51,14 @@ contract LuxOrders is ERC721Full, Ownable {
       bool exists; //always true
     }
 
-    //chooseDonations -> index is hash of orderNumber + buyerHash
+    //chooseDonations -> index is orderNumber
     //this is here so double allocations from one order cannot be made
-    mapping (bytes32 => ChooseDonation) public chooseDonations;
+    mapping (uint256 => ChooseDonation) public chooseDonations;
     struct ChooseDonation {
       string charityName;
       uint256 amountAllocated;
-      uint256 orderNumber;
+      bytes32 buyerHash;
+      bool exists;
     }
 
     //MadeDonations is a list of donations actually made
@@ -95,7 +97,7 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
   //events
-    event SoldAndMintedToken (uint256 _tokenId, bytes32 _buyerID, uint256 _saleAmount, string _tokenURI, address _tokenMinter);
+    event SoldAndMintedToken (uint256 _tokenId, bytes32 _buyerID, uint256 _saleAmount, string _tokenURI, address _tokenMinter, uint256 _orderNumber);
     //event when donation is chosen (bytes32, amount, charityName, donation id)
     event DonationChosen (string _charityName, bytes32 _buyerId, uint256 _amountToBeDonated);
     //event when donation is made by luxarity
@@ -106,7 +108,7 @@ contract LuxOrders is ERC721Full, Ownable {
   //cuase functions
 
     //mint function - when Orders are sold in an order - the receipt should be tokenized
-    function soldOrderToMint(string _tokenURI, uint256 _saleAmount, string _buyerID, string _redemptionHash) public onlyOwner returns (uint) {
+    function soldOrderToMint(string _tokenURI, uint256 _saleAmount, string _buyerID, string _redemptionHash, uint256 _orderNumber) public onlyOwner returns (uint) {
 
       //1.0 Ensure token doesn't already exists
       uint256 testIndex = orderIndex + 1;
@@ -133,7 +135,7 @@ contract LuxOrders is ERC721Full, Ownable {
       orderIndex += 1;
 
       //create new sale
-      orderTokens[orderIndex] = OrderToken(_saleAmount, _tokenURI, msg.sender, msg.sender, false, buyerID, redemptionHash, true);
+      orderTokens[orderIndex] = OrderToken(_saleAmount, _orderNumber, _tokenURI, msg.sender, msg.sender, false, buyerID, redemptionHash, true);
 
       //mint token
       _mint(msg.sender, orderIndex);
@@ -142,7 +144,7 @@ contract LuxOrders is ERC721Full, Ownable {
       _setTokenURI(orderIndex, _tokenURI);
 
       //emit event
-      emit SoldAndMintedToken(orderIndex, buyerID, _saleAmount, _tokenURI, msg.sender);
+      emit SoldAndMintedToken(orderIndex, buyerID, _saleAmount, _tokenURI, msg.sender, _orderNumber);
 
       //return
       return orderIndex;
@@ -150,41 +152,57 @@ contract LuxOrders is ERC721Full, Ownable {
     }
 
     //chooseDonation function
-    function chooseDonation(string _buyerID, string _charityName, uint256 _chosenDonateAmount, uint256 _orderNumber) public returns (bool) {
-      //buyer check to operate function instead of modifier for conversion reasons
+    function chooseDonation(string _buyerID, string _charityName, uint256 _chosenDonateAmount, uint256 _orderNumber, uint256 _tokenId) public returns (bool) {
+
+      //check if buyer exists
       bytes32 buyerID = keccak256(abi.encodePacked(_buyerID));
       require(buyers[buyerID].exists == true);
-      //check if amount to donate is less than or equal to the amount left
+
+      //check if amount to donate is less than or equal to the amount left for buyer
       uint256 leftover = buyers[buyerID].totalContributed - buyers[buyerID].totalDonationsAllocated;
-      //if it is, proceed
-      if (leftover >= _chosenDonateAmount) {
-        //incement totalChosenDonatedAmount
-        totalChosenDonatedAmount += _chosenDonateAmount;
-        //increment total number of donations chosen to be made
-        totalChosenDonations += 1;
-        //update buyers donation allocation
-        buyers[buyerID].totalDonationsAllocated += _chosenDonateAmount;
-        //check if charity is new
-        bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
-        //if it is, add to charity mapping
-        if (charities[charityHash].exists) {
-          charities[charityHash].amountChosenToDonate += _chosenDonateAmount;
-        } else {
-          //if not, update charity struct
-          charities[charityHash] = Charity(_charityName, _chosenDonateAmount, 0, true);
-        }
+      require(leftover >= _chosenDonateAmount);
+
+      // amount needs to be equal to or less than its corresponding order total amount
+      require(orderTokens[_tokenId].saleAmount >= _chosenDonateAmount);
+
+      //check if donation has been made before and the total is reached
+      if (chooseDonations[_orderNumber].exists) {
+        //only person that can allocate is the person who made the order
+        require(chooseDonations[_orderNumber].buyerHash == buyerID);
+        //determine what the new chosen donation amount will be
+        uint256 newTotal = _chosenDonateAmount + chooseDonations[_orderNumber].amountAllocated;
+        //enforce that that amount is less than the sale amount
+        require(newTotal <= orderTokens[_tokenId].saleAmount);
+        //increment total allocated chosen donations for that order
+        chooseDonations[_orderNumber].amountAllocated += _chosenDonateAmount;
+      } else {
         //add to chosenDonations mapping
-        bytes32 chooseDonationHash = keccak256(abi.encodePacked(buyerID, _orderNumber));
-        chooseDonations[chooseDonationHash] = ChooseDonation(_charityName, _chosenDonateAmount, _orderNumber);
-
-        //emit event ChosenToDonate
-        emit DonationChosen(_charityName, buyerID, _chosenDonateAmount);
-
-        //return true
-        return true;
+        chooseDonations[_orderNumber] = ChooseDonation(_charityName, _chosenDonateAmount, buyerID, true);
       }
-      //if it is not, return false
-      return false;
+
+      //incement totalChosenDonatedAmount
+      totalChosenDonatedAmount += _chosenDonateAmount;
+      //increment total number of donations chosen to be made
+      totalChosenDonations += 1;
+      //update buyers donation allocation
+      buyers[buyerID].totalDonationsAllocated += _chosenDonateAmount;
+      //check if charity is new
+      bytes32 charityHash = keccak256(abi.encodePacked(_charityName));
+
+      //if it is, add to charity mapping
+      if (charities[charityHash].exists) {
+        charities[charityHash].amountChosenToDonate += _chosenDonateAmount;
+      } else {
+        //if not, update charity struct
+        charities[charityHash] = Charity(_charityName, _chosenDonateAmount, 0, true);
+      }
+
+      //emit event ChosenToDonate
+      emit DonationChosen(_charityName, buyerID, _chosenDonateAmount);
+
+      //return true
+      return true;
+
     }
 
     //make donation function

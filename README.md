@@ -75,4 +75,5 @@ Assets are comprised of variables that have an innate value (non-fungible assets
 
 ![Item Actions](https://github.com/ConsenSys/LuxToken/blob/master/ReadMeImgs/TokenActions.png)
 
-
+# LuxOrder Test Contracts & Resources
+- Test Contract on Rinkeby After Testing (v1): 0xfd2A3ED81b259156DBA0b8FAd149010e6662C8F4
