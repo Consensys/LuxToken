@@ -97,7 +97,7 @@ contract('LuxOrders', (accounts) => {
      assert.equal(newAllocation, 1000, 'The donation allocation for the buyer is incorrect')
 
      //check for chooseDonation struct with 1000 in it
-     const choosenDonation = await contractInstance.chooseDonations(123)
+     const choosenDonation = await contractInstance.choseDonations(123)
      const charityName = choosenDonation[0]
      assert.equal(charityName, 'Black Girls Code', 'The charity name in the chosenDonation struct is incorrect')
 

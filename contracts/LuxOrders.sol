@@ -51,10 +51,10 @@ contract LuxOrders is ERC721Full, Ownable {
       bool exists; //always true
     }
 
-    //chooseDonations -> index is orderNumber
+    //choseDonations -> index is orderNumber
     //this is here so double allocations from one order cannot be made
-    mapping (uint256 => ChooseDonation) public chooseDonations;
-    struct ChooseDonation {
+    mapping (uint256 => ChoseDonation) public choseDonations;
+    struct ChoseDonation {
       string charityName;
       uint256 amountAllocated;
       bytes32 buyerHash;
@@ -99,7 +99,7 @@ contract LuxOrders is ERC721Full, Ownable {
   //events
     event SoldAndMintedToken (uint256 _tokenId, bytes32 _buyerID, uint256 _saleAmount, string _tokenURI, address _tokenMinter, uint256 _orderNumber);
     //event when donation is chosen (bytes32, amount, charityName, donation id)
-    event DonationChosen (string _charityName, bytes32 _buyerId, uint256 _amountToBeDonated);
+    event DonationChosen (string _charityName, bytes32 _buyerId, uint256 _amountToBeDonated, uint256 _orderNumber, uint256 _totalAmountAllocated, uint256 _orderSaleAmount);
     //event when donation is made by luxarity
     event DonationMadeToCharity (bytes32 _donationHash, uint256 _amountDonated, string _charityName, string _donationURL);
     //event when token is redeemed
@@ -166,18 +166,18 @@ contract LuxOrders is ERC721Full, Ownable {
       require(orderTokens[_tokenId].saleAmount >= _chosenDonateAmount);
 
       //check if donation has been made before and the total is reached
-      if (chooseDonations[_orderNumber].exists) {
+      if (choseDonations[_orderNumber].exists) {
         //only person that can allocate is the person who made the order
-        require(chooseDonations[_orderNumber].buyerHash == buyerID);
+        require(choseDonations[_orderNumber].buyerHash == buyerID);
         //determine what the new chosen donation amount will be
-        uint256 newTotal = _chosenDonateAmount + chooseDonations[_orderNumber].amountAllocated;
+        uint256 newTotal = _chosenDonateAmount + choseDonations[_orderNumber].amountAllocated;
         //enforce that that amount is less than the sale amount
         require(newTotal <= orderTokens[_tokenId].saleAmount);
         //increment total allocated chosen donations for that order
-        chooseDonations[_orderNumber].amountAllocated += _chosenDonateAmount;
+        choseDonations[_orderNumber].amountAllocated += _chosenDonateAmount;
       } else {
         //add to chosenDonations mapping
-        chooseDonations[_orderNumber] = ChooseDonation(_charityName, _chosenDonateAmount, buyerID, true);
+        choseDonations[_orderNumber] = ChoseDonation(_charityName, _chosenDonateAmount, buyerID, true);
       }
 
       //incement totalChosenDonatedAmount
@@ -198,7 +198,7 @@ contract LuxOrders is ERC721Full, Ownable {
       }
 
       //emit event ChosenToDonate
-      emit DonationChosen(_charityName, buyerID, _chosenDonateAmount);
+      emit DonationChosen(_charityName, buyerID, _chosenDonateAmount, _orderNumber, choseDonations[_orderNumber].amountAllocated, orderTokens[_tokenId].saleAmount);
 
       //return true
       return true;
